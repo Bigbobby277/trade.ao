@@ -1,10 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
-  generationConfig: { responseMimeType: "application/json" },
-});
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const SYSTEM_PROMPT = `You are a market analyst engine for a trading intelligence platform.
 Given a news headline, assess its likely market impact.
@@ -17,16 +13,21 @@ Respond ONLY with valid JSON, matching this shape exactly:
 }`;
 
 export async function analyzeHeadline(headline) {
-  const result = await model.generateContent(
-    `${SYSTEM_PROMPT}\n\nHeadline: "${headline}"`
-  );
-  const text = result.response.text();
+  const completion = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: `Headline: "${headline}"` },
+    ],
+    response_format: { type: "json_object" },
+  });
+
+  const text = completion.choices[0].message.content;
   const cleaned = text.replace(/```json|```/g, "").trim();
 
   try {
     return JSON.parse(cleaned);
   } catch {
-    // If the model returns non-JSON, fail safe rather than crash the pipeline
     return {
       summary: "Analysis unavailable for this headline.",
       impact: "low",
