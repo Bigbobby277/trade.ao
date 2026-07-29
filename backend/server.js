@@ -9,7 +9,17 @@ import subscriptionRoutes from "./routes/subscription.js";
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+// Allows your main CLIENT_URL plus any Vercel preview/production URL,
+// since Vercel generates a new domain on every deploy.
+const allowedOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true); // non-browser requests (curl, server-to-server)
+  const isVercel = /\.vercel\.app$/.test(new URL(origin).hostname);
+  const isConfigured = origin === process.env.CLIENT_URL;
+  if (isVercel || isConfigured) return callback(null, true);
+  callback(new Error("Not allowed by CORS"));
+};
+
+app.use(cors({ origin: allowedOrigin, credentials: true }));
 
 // Stripe webhook needs the raw body — must be registered BEFORE express.json()
 app.use("/api/subscription/webhook", express.raw({ type: "application/json" }));
