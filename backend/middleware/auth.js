@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
 export function requireAuth(req, res, next) {
   const header = req.headers.authorization;
@@ -15,10 +16,28 @@ export function requireAuth(req, res, next) {
   }
 }
 
-// Blocks access to paid features unless the user's subscription is active
-export function requireActiveSubscription(req, res, next) {
-  if (req.user?.subscription?.status !== "active") {
-    return res.status(402).json({ error: "Active subscription required" });
+// Fetch user and check if subscription is active
+export async function requireActiveSubscription(req, res, next) {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user || user.subscription.status !== "active") {
+      return res.status(402).json({ error: "Active subscription required" });
+    }
+    req.user = user;
+    next();
+  } catch (err) {
+    return res.status(500).json({ error: "Error checking subscription" });
   }
-  next();
+}
+
+// Check if user is free or paid tier
+export async function attachUserTier(req, res, next) {
+  try {
+    const user = await User.findById(req.userId);
+    req.user = user;
+    req.isPaid = user?.subscription?.status === "active";
+    next();
+  } catch (err) {
+    return res.status(500).json({ error: "Error fetching user" });
+  }
 }
